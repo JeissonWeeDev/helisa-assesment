@@ -65,3 +65,80 @@ export class CreateAccountUseCase {
     return account;
   }
 }
+
+if (import.meta.vitest) {
+  const { beforeEach, describe, expect, it } = import.meta.vitest;
+
+  describe('CreateAccountUseCase', () => {
+    let repository: AccountRepository;
+    let useCase: CreateAccountUseCase;
+
+    beforeEach(async () => {
+      const { InMemoryAccountRepository } =
+        await import('../../infrastructure/repositories/in-memory-account.repository.js');
+      repository = new InMemoryAccountRepository();
+      useCase = new CreateAccountUseCase(repository);
+    });
+
+    it('creates a class account with its nature', async () => {
+      const account = await useCase.execute({
+        code: '1',
+        name: 'Activo',
+        nature: 'debito',
+      });
+
+      expect(account).toMatchObject({
+        code: '1',
+        level: 'clase',
+        nature: 'debito',
+        allowsMovements: true,
+      });
+    });
+
+    it('requires a nature for class accounts', async () => {
+      await expect(
+        useCase.execute({ code: '1', name: 'Activo' }),
+      ).rejects.toThrow(MissingAccountNatureError);
+    });
+
+    it('rejects duplicate codes', async () => {
+      await useCase.execute({ code: '1', name: 'Activo', nature: 'debito' });
+
+      await expect(
+        useCase.execute({ code: '1', name: 'Activo', nature: 'debito' }),
+      ).rejects.toThrow(DuplicateAccountCodeError);
+    });
+
+    it('requires the parent account to exist', async () => {
+      await expect(
+        useCase.execute({ code: '11', name: 'Disponible' }),
+      ).rejects.toThrow(ParentAccountNotFoundError);
+    });
+
+    it('inherits the nature and disables parent movements', async () => {
+      await useCase.execute({ code: '1', name: 'Activo', nature: 'debito' });
+
+      const child = await useCase.execute({ code: '11', name: 'Disponible' });
+
+      expect(child).toMatchObject({
+        code: '11',
+        level: 'grupo',
+        nature: 'debito',
+        allowsMovements: true,
+      });
+      expect((await repository.findByCode('1'))?.allowsMovements).toBe(false);
+    });
+
+    it('rejects a nature that does not match the parent', async () => {
+      await useCase.execute({ code: '1', name: 'Activo', nature: 'debito' });
+
+      await expect(
+        useCase.execute({
+          code: '11',
+          name: 'Disponible',
+          nature: 'credito',
+        }),
+      ).rejects.toThrow(AccountNatureMismatchError);
+    });
+  });
+}

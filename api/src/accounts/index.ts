@@ -21,3 +21,7 @@ export {
 } from './application/use-cases/get-account-tree.use-case.js';
 export { DeleteAccountUseCase } from './application/use-cases/delete-account.use-case.js';
 export { InMemoryAccountRepository } from './infrastructure/repositories/in-memory-account.repository.js';
+export { AccountsModule } from './accounts.module.js';
+export { AccountsController } from './infrastructure/http/accounts.controller.js';
+export { CreateAccountDto } from './infrastructure/http/dto/create-account.dto.js';
+export { AccountResponseDto } from './infrastructure/http/dto/account-response.dto.js';

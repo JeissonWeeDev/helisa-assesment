@@ -104,3 +104,70 @@ export function getParentAccountCode(code: string): string | null {
 export function isAccountNature(value: unknown): value is AccountNature {
   return value === 'debito' || value === 'credito';
 }
+
+if (import.meta.vitest) {
+  const { describe, expect, it } = import.meta.vitest;
+
+  describe('Account', () => {
+    it('derives the level from the code length', () => {
+      expect(getAccountLevel('1')).toBe('clase');
+      expect(getAccountLevel('11')).toBe('grupo');
+      expect(getAccountLevel('1105')).toBe('cuenta');
+      expect(getAccountLevel('110505')).toBe('subcuenta');
+    });
+
+    it('derives the parent code from the previous level', () => {
+      expect(getParentAccountCode('1')).toBeNull();
+      expect(getParentAccountCode('11')).toBe('1');
+      expect(getParentAccountCode('1105')).toBe('11');
+      expect(getParentAccountCode('110505')).toBe('1105');
+    });
+
+    it('rejects codes that are not digits or have an invalid length', () => {
+      expect(() => getAccountLevel('123')).toThrow(InvalidAccountCodeError);
+      expect(() => getAccountLevel('AB')).toThrow(InvalidAccountCodeError);
+      expect(() => getAccountLevel('-1')).toThrow(InvalidAccountCodeError);
+    });
+
+    it('creates a valid account and normalizes its data', () => {
+      const account = Account.create({
+        code: 1105,
+        name: ' Caja ',
+        nature: 'debito',
+      });
+
+      expect(account).toMatchObject({
+        code: '1105',
+        name: 'Caja',
+        level: 'cuenta',
+        nature: 'debito',
+        allowsMovements: true,
+      });
+    });
+
+    it('rejects an empty name and an invalid nature', () => {
+      expect(() =>
+        Account.create({ code: '1', name: '  ', nature: 'debito' }),
+      ).toThrow(EmptyAccountNameError);
+
+      expect(() =>
+        Account.create({
+          code: '11',
+          name: 'Cuenta',
+          nature: 'otra' as unknown as AccountNature,
+        }),
+      ).toThrow(InvalidAccountNatureError);
+    });
+
+    it('returns a copy with a different movements flag', () => {
+      const account = Account.create({
+        code: '1',
+        name: 'Activo',
+        nature: 'debito',
+      });
+
+      expect(account.withAllowsMovements(false).allowsMovements).toBe(false);
+      expect(account.allowsMovements).toBe(true);
+    });
+  });
+}
